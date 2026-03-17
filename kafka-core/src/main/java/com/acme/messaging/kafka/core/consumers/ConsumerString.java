@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.CooperativeStickyAssignor;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.errors.WakeupException;
@@ -60,6 +61,17 @@ public class ConsumerString {
         // latest = To read from the end of the topic. That is to say, it will always be read the last message.
         properties.setProperty("auto.offset.reset", "earliest");
 
+        // The property partition.assignment.strategy defines that way which are added/remmoved
+        // new consumers to consumer group
+        // By default org.apache.kafka.clients.consumer.RangeAssignor
+        // org.apache.kafka.clients.consumer.CooperativeStickyAssignor
+        properties.setProperty(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG,
+                CooperativeStickyAssignor.class.getName());
+
+        // To define static assignment strategy
+        // If you assign a group.id it will allow to consumers to track and resume from correct offsets for message processing
+        //properties.setProperty(ConsumerConfig.GROUP_INSTANCE_ID_CONFIG, "...");
+
     }
 
     public void consume() {
@@ -69,9 +81,11 @@ public class ConsumerString {
             // To consume messages through infinite loop
             while (true) {
 
-                log.info("Waiting for messages...");
+                //log.info("Waiting for messages...");
 
                 // Time to wait for new messages
+                // Offsets are commited when you call .poll() and auto.commit.interval.ms has elapsed
+                // See enable.auto.commit = true
                 ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(1000));
 
                 for (ConsumerRecord<String, String> record : records) {
@@ -128,7 +142,8 @@ public class ConsumerString {
     }
 
     public static void main(String[] args) {
-        ConsumerString consumer = new ConsumerString("localhost:9092", List.of("second_topic"));
+        ConsumerString consumer =
+                new ConsumerString("localhost:9092", List.of("third_topic"));
         consumer.consume();
     }
 }
