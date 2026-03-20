@@ -4,7 +4,7 @@ import com.launchdarkly.eventsource.EventSource;
 import com.launchdarkly.eventsource.HttpConnectStrategy;
 import com.launchdarkly.eventsource.background.BackgroundEventHandler;
 import com.launchdarkly.eventsource.background.BackgroundEventSource;
-import okhttp3.Headers;
+//import okhttp3.Headers;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -37,21 +37,35 @@ public class WikimediaProducer {
         // acks=all Leader + replicas acknowledgment (no data loss). Replicas =  replica factor
         // For the last one value cheek min.insync.replicas property
 
+        // When you are using Kafka <= 2.8 you will have to set safe producer configs
+        properties.setProperty(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true");
+        properties.setProperty(ProducerConfig.ACKS_CONFIG, "all");
+        properties.setProperty(ProducerConfig.RETRIES_CONFIG, Integer.toString(Integer.MAX_VALUE));
+
+        // To set high throughput producer config
+        // To spend 20 miliseconds before to close the batch and send it.
+        properties.setProperty(ProducerConfig.LINGER_MS_CONFIG, "20");
+        // To set the batch size. By default, it is 16384
+        properties.setProperty(ProducerConfig.BATCH_SIZE_CONFIG, Integer.toString(32 * 1024));
+        // To set the compression type. By default, it is none
+        properties.setProperty(ProducerConfig.COMPRESSION_TYPE_CONFIG, "snappy");
+
+
         KafkaProducer<String, String> producer =
                 new KafkaProducer<>(properties);
 
         BackgroundEventHandler eventHandler = new WikimediaHandler(producer, TOPIC_NAME);
 
         HttpConnectStrategy connectStrategy =
-                HttpConnectStrategy.http(URI.create(STREAMING_URL));
-                        //.header("User-Agent", "my-kafka-producer/1.0 (contact: admin@ourcompany.com)");
+                HttpConnectStrategy.http(URI.create(STREAMING_URL))
+                        .header("User-Agent", "my-kafka-producer/1.0 (contact: admin@ourcompany.com)");
 
         // To add headers
-        Headers headers = new Headers.Builder()
+        /*Headers headers = new Headers.Builder()
                 .add("User-Agent", "my-kafka-producer/1.0 (contact: admin@ourcompany.com)")
                 .build();
 
-        connectStrategy.headers(headers);
+        connectStrategy.headers(headers);*/
 
         EventSource.Builder eventSourceBuilder =
                 new EventSource.Builder(connectStrategy);
